@@ -1,5 +1,5 @@
 -module(gds2txt).
--export([main/0, main/1]).
+-export([main/0, main/1, run/1]).
 
 -include("gdsii.hrl").
 
@@ -12,15 +12,18 @@ main() ->
 -spec main(list()) -> no_return().
 
 main([FileName]) ->
-  case file:open(FileName, [read, raw, binary, read_ahead]) of
-    {ok, Dev} ->
-      show_gds(Dev),
-      file:close(Dev)
-  end,
+  run(FileName),
   halt();
 
 main(_Args) ->
   main().
+
+run(FileName) ->
+  case file:open(FileName, [read, raw, binary, read_ahead]) of
+    {ok, Dev} ->
+      show_gds(Dev),
+      file:close(Dev)
+  end.
 
 -spec print_tag(integer(), gdsii:record_data()) -> 'ok'.
 
