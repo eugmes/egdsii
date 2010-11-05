@@ -39,19 +39,16 @@ type_of_tag(Tag) ->
     ?ASCII -> ascii
   end.
 
-% TODO optimize
 int2_from_binary(<<>>) -> [];
 
 int2_from_binary(<<Int2:16/signed, Rest/binary>>) ->
-  [Int2] ++ int2_from_binary(Rest).
+  [Int2 | int2_from_binary(Rest)].
 
-% TODO optimize
 int4_from_binary(<<>>) -> [];
 
 int4_from_binary(<<Int4:32/signed, Rest/binary>>) ->
-  [Int4] ++ int4_from_binary(Rest).
+  [Int4 | int4_from_binary(Rest)].
 
-% TODO optimize
 real8_from_binary(<<>>) -> [];
 
 real8_from_binary(<<Sgn:1, Exp:7, Mant:56, Rest/binary>>) ->
@@ -60,7 +57,8 @@ real8_from_binary(<<Sgn:1, Exp:7, Mant:56, Rest/binary>>) ->
     1 -> -1.0
   end,
   % TODO use something like ldexp()
-  [FSign * Mant * math:pow(2, (4 * (Exp - 64) - 56))] ++ real8_from_binary(Rest).
+  Float = FSign * Mant * math:pow(2, (4 * (Exp - 64) - 56)),
+  [Float | real8_from_binary(Rest)].
 
 -spec read_data(file:io_device(), non_neg_integer(), non_neg_integer()) -> record_data().
 
