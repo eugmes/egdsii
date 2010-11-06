@@ -10,4 +10,4 @@ dialyzer:
 clean:
 	rm -f erl_crash.dump ebin/*.beam
 
-.PHONY: all typer dialyzer
+.PHONY: all typer dialyzer clean
