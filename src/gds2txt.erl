@@ -1,3 +1,5 @@
+%% Author: Eugeniy Meshcheryakov <eugen@debian.org>
+%% This file is in the public domain.
 -module(gds2txt).
 -export([main/0, main/1, run/1]).
 

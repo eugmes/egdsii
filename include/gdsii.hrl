@@ -1,3 +1,6 @@
+%% Author: Eugeniy Meshcheryakov <eugen@debian.org>
+%% This file is in the public domain.
+
 % Tag types
 -define(NODATA, 0).
 -define(BITARRAY, 1).

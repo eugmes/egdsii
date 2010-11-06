@@ -1,3 +1,5 @@
+%% Author: Eugeniy Meshcheryakov <eugen@debian.org>
+%% This file is in the public domain.
 -module(gdsii).
 -export([read_record/1, name_of_tag/1]).
 
