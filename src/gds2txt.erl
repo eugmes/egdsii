@@ -8,7 +8,7 @@
 -spec main() -> no_return().
 
 main() ->
-  io:put_chars(standard_error, "Usage: gds2txt file.gds\n"),
+  io:put_chars(standard_error, <<"Usage: gds2txt file.gds\n">>),
   halt(1).
 
 -spec main(list()) -> no_return().
@@ -35,22 +35,22 @@ print_tag(Tag, Data) ->
 -spec format_data(binary(), gdsii:data_type()) -> 'ok'.
 
 format_data(Name, nodata) ->
-  io:fwrite("~s~n", [Name]);
+  io:put_chars([Name, <<"\n">>]);
 
 format_data(Name, {ascii, String}) ->
-  io:fwrite("~s: \"~s\"~n", [Name, String]);
+  io:put_chars([Name, <<": \"">>, String, <<"\"\n">>]); % TODO escape special chars in String
 
 format_data(Name, {bitarray, Bits}) ->
   io:fwrite("~s: 0x~4.16.0B~n", [Name, Bits]);
 
 format_data(Name, {int2, List}) ->
-  io:fwrite("~s: ~s~n", [Name, format_num_list(fun integer_to_list/1, List)]);
+  io:put_chars([Name, <<": ">>, format_num_list(fun integer_to_list/1, List), <<"\n">>]);
 
 format_data(Name, {int4, List}) ->
-  io:fwrite("~s: ~s~n", [Name, format_num_list(fun integer_to_list/1, List)]);
+  io:put_chars([Name, <<": ">>, format_num_list(fun integer_to_list/1, List), <<"\n">>]);
 
 format_data(Name, {real8, List}) ->
-  io:fwrite("~s: ~s~n", [Name, format_num_list(fun(N) -> io_lib:format("~g", [N]) end, List)]).
+  io:put_chars([Name, <<": ">>, format_num_list(fun(N) -> io_lib:format("~g", [N]) end, List), <<"\n">>]).
 
 format_num_list(F, L) ->
   [_X|Xs] = lists:foldl(fun(E, Acc) -> [<<", ">>, F(E) | Acc] end, [], L),
