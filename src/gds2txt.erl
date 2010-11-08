@@ -9,13 +9,13 @@
 
 main() ->
   io:put_chars(standard_error, <<"Usage: gds2txt file.gds\n">>),
-  halt(1).
+  init:stop(1).
 
 -spec main(list()) -> no_return().
 
 main([FileName]) ->
   run(FileName),
-  halt();
+  init:stop();
 
 main(_Args) ->
   main().
