@@ -27,42 +27,54 @@ run(FileName) ->
       file:close(Dev)
   end.
 
--spec print_tag(integer(), gdsii:record_data()) -> 'ok'.
+-spec format_tag(integer(), gdsii:record_data(), iolist()) -> iolist().
 
-print_tag(Tag, Data) ->
-  format_data(gdsii:name_of_tag(Tag), Data).
+format_tag(Tag, Data, Acc) ->
+  [Acc, format_data(gdsii:name_of_tag(Tag), Data)].
 
--spec format_data(binary(), gdsii:data_type()) -> 'ok'.
+-spec format_data(binary(), gdsii:data_type()) -> iolist().
 
 format_data(Name, nodata) ->
-  io:put_chars([Name, <<"\n">>]);
+  [Name, <<"\n">>];
 
 format_data(Name, {ascii, String}) ->
-  io:put_chars([Name, <<": \"">>, String, <<"\"\n">>]); % TODO escape special chars in String
+  [Name, <<": \"">>, String, <<"\"\n">>]; % TODO escape special chars in String
 
 format_data(Name, {bitarray, Bits}) ->
-  io:fwrite("~s: 0x~4.16.0B~n", [Name, Bits]);
+  [Name, <<": 0x">>, integer_to_list(Bits, 16), <<"\n">>];
 
 format_data(Name, {int2, List}) ->
-  io:put_chars([Name, <<": ">>, format_num_list(fun integer_to_list/1, List), <<"\n">>]);
+  [Name, <<": ">>, format_num_list(fun integer_to_list/1, List), <<"\n">>];
 
 format_data(Name, {int4, List}) ->
-  io:put_chars([Name, <<": ">>, format_num_list(fun integer_to_list/1, List), <<"\n">>]);
+  [Name, <<": ">>, format_num_list(fun integer_to_list/1, List), <<"\n">>];
 
 format_data(Name, {real8, List}) ->
-  io:put_chars([Name, <<": ">>, format_num_list(fun(N) -> io_lib:format("~g", [N]) end, List), <<"\n">>]).
+  [Name, <<": ">>, format_num_list(fun(N) -> io_lib:format("~g", [N]) end, List), <<"\n">>].
 
 format_num_list(F, L) ->
   [_X|Xs] = lists:foldl(fun(E, Acc) -> [<<", ">>, F(E) | Acc] end, [], L),
-  iolist_to_binary(lists:reverse(Xs)).
+  lists:reverse(Xs).
+
+-define(FLUSH_CNT, 40).
 
 -spec show_gds(file:io_device()) -> 'ok'.
 
 show_gds(Dev) ->
+  show_gds(Dev, [], ?FLUSH_CNT).
+
+show_gds(Dev, Acc, N) ->
   case gdsii:read_record(Dev) of
     {Tag, Data} when Tag == ?ENDLIB ->
-      print_tag(Tag, Data);
+      Acc1 = format_tag(Tag, Data, Acc),
+      io:put_chars(iolist_to_binary(Acc1));
     {Tag, Data} ->
-      print_tag(Tag, Data),
-      show_gds(Dev)
+      Acc1 = format_tag(Tag, Data, Acc),
+      case N of
+        0 ->
+          io:put_chars(iolist_to_binary(Acc1)),
+          show_gds(Dev, [], ?FLUSH_CNT);
+        _ ->
+          show_gds(Dev, Acc1, N - 1)
+      end
   end.
