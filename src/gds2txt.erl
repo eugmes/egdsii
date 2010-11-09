@@ -1,24 +1,30 @@
 %% Author: Eugeniy Meshcheryakov <eugen@debian.org>
 %% This file is in the public domain.
 -module(gds2txt).
--export([main/0, main/1, run/1]).
+-export([start/0, run/1]).
 
 -include("gdsii.hrl").
 
--spec main() -> no_return().
+-spec start() -> no_return().
 
-main() ->
+start() ->
+  case init:get_plain_arguments() of
+    [[$- | _]] ->
+      usage(); % gds2txt does not accept any options
+    [FileName] ->
+      run(FileName),
+      init:stop();
+    _ ->
+      usage()
+  end.
+
+-spec usage() -> no_return().
+
+usage() ->
   io:put_chars(standard_error, <<"Usage: gds2txt file.gds\n">>),
   init:stop(1).
 
--spec main(list()) -> no_return().
-
-main([FileName]) ->
-  run(FileName),
-  init:stop();
-
-main(_Args) ->
-  main().
+-spec run(string()) -> 'ok'.
 
 run(FileName) ->
   case file:open(FileName, [read, raw, binary, read_ahead]) of
