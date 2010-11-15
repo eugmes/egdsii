@@ -1,1 +1,2 @@
 ebin/*.beam
+src/gdsdump_lex.erl
