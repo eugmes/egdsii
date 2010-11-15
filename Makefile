@@ -1,13 +1,21 @@
-all:
-	erl -make
+ERL = erl
+ERLC = erlc
 
-typer:
-	typer -I ./include -I ./src src/*
+GENFILES = src/gdsdump_lex.erl
 
-dialyzer:
-	dialyzer -I ./include -I ./src src/*
+all: $(GENFILES)
+	$(ERL) -make
+
+typer: $(GENFILES)
+	typer -I ./include -I ./src src/*.erl
+
+dialyzer: $(GENFILES)
+	dialyzer -I ./include -I ./src src/*.erl
 
 clean:
-	rm -f erl_crash.dump ebin/*.beam
+	rm -f erl_crash.dump ebin/*.beam $(GENFILES)
+
+%.erl: %.xrl
+	$(ERLC) +debug_info -o $(dir $<) $<
 
 .PHONY: all typer dialyzer clean

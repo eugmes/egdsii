@@ -1,7 +1,7 @@
 %% Author: Eugeniy Meshcheryakov <eugen@debian.org>
 %% This file is in the public domain.
 -module(gdsii).
--export([read_record/1, name_of_tag/1]).
+-export([read_record/1, type_of_tag/1, record_to_binary/1, name_of_tag/1, name_to_tag/1]).
 
 -include("gdsii.hrl").
 
@@ -101,6 +101,89 @@ parse_data(Size, Data, ascii) when Size > 0, Size rem 2 == 0 ->
   end,
   {ascii, Trimmed}.
 
+-spec record_to_binary({non_neg_integer(), record_data()}) -> binary().
+
+record_to_binary({Tag, Data}) ->
+  BinData = data_to_binary(Data),
+  DataSize = byte_size(BinData) + 4,
+  <<DataSize:16, Tag:16, BinData/binary>>.
+
+data_to_binary(nodata) -> <<>>;
+
+data_to_binary({bitarray, Bitarray}) -> <<Bitarray:16>>;
+
+data_to_binary({int2, IntList}) ->
+  iolist_to_binary(int2_to_binary_list(IntList));
+
+data_to_binary({int4, IntList}) ->
+  iolist_to_binary(int4_to_binary_list(IntList));
+
+data_to_binary({real8, RealList}) ->
+  iolist_to_binary(real8_to_binary_list(RealList));
+
+data_to_binary({ascii, S}) ->
+  case S of
+    Odd when byte_size(Odd) rem 2 == 1 ->
+      <<S/binary, 0>>;
+    _ -> S
+  end.
+
+int2_to_binary_list([I]) -> [<<I:16>>];
+
+int2_to_binary_list([I | Rest]) ->
+  [<<I:16>> | int2_to_binary_list(Rest)].
+
+int4_to_binary_list([I]) -> [<<I:32>>];
+
+int4_to_binary_list([I | Rest]) ->
+  [<<I:32>> | int4_to_binary_list(Rest)].
+
+real8_to_binary_list([]) -> []; % to save some typing
+
+real8_to_binary_list([R | Rest]) ->
+  [real8_to_binary(R) | real8_to_binary_list(Rest)].
+
+real8_to_binary(R) ->
+  <<Sign:1, IEEEExp:11, IEEEMant:52>> = <<R/float>>,
+  case IEEEExp of
+    0 -> <<0:64>>; % denormal
+    _ ->
+      % substract exponent bias
+      UnbIEEEExp = IEEEExp - 1023,
+      % add leading one and move to GDSII position
+      IEEEMantFull = (IEEEMant + 16#10000000000000) bsl 3,
+      % convert exponent to 16-based, +1 for differences in presentation
+      % of mantissa (1.xxxx in EEEE and 0.1xxxxx in GDSII
+      {Exp16, ExpRest} = divmod(UnbIEEEExp + 1, 4), %FIXME convert to something like Erlang
+      % compensate exponent converion
+      {NewExp16, NewExpRest} = if
+        ExpRest > 0 -> {Exp16 + 1, 4 - ExpRest};
+        true -> {Exp16, ExpRest}
+      end,
+      IEEEMantComp = IEEEMantFull bsr NewExpRest,
+      % add GDSII exponent bias
+      Exp16Biased = NewExp16 + 64,
+      if
+        Exp16Biased < -14 -> <<0:64>>;
+        Exp16Biased < 0 ->
+          M = IEEEMantComp bsr (Exp16Biased * 4),
+          <<Sign:1, 0:7, M:56>>;
+        Exp16Biased > 16#7f ->
+          throw(number_too_big);
+        true ->
+          <<Sign:1, Exp16Biased:7, IEEEMantComp:56>>
+      end
+  end.
+
+% TODO remove
+divmod(X, Y) ->
+  Div = X div Y,
+  Mod = X rem Y,
+  if
+    Mod < 0 -> {Div - 1, Y + Mod};
+    true -> {Div, Mod}
+  end.
+
 -spec name_of_tag(non_neg_integer()) -> binary().
 
 name_of_tag(Tag) ->
@@ -169,4 +252,74 @@ name_of_tag(Tag) ->
     ?USERCONSTRAINT -> <<"USERCONSTRAINT">>;
     ?SPACERERROR -> <<"SPACERERROR">>;
     ?CONTACT -> <<"CONTACT">>
+  end.
+
+-spec name_to_tag(binary()) -> non_neg_integer().
+
+name_to_tag(Name) ->
+  case Name of
+    <<"HEADER">> -> ?HEADER;
+    <<"BGNLIB">> -> ?BGNLIB;
+    <<"LIBNAME">> -> ?LIBNAME;
+    <<"UNITS">> -> ?UNITS;
+    <<"ENDLIB">> -> ?ENDLIB;
+    <<"BGNSTR">> -> ?BGNSTR;
+    <<"STRNAME">> -> ?STRNAME;
+    <<"ENDSTR">> -> ?ENDSTR;
+    <<"BOUNDARY">> -> ?BOUNDARY;
+    <<"PATH">> -> ?PATH;
+    <<"SREF">> -> ?SREF;
+    <<"AREF">> -> ?AREF;
+    <<"TEXT">> -> ?TEXT;
+    <<"LAYER">> -> ?LAYER;
+    <<"DATATYPE">> -> ?DATATYPE;
+    <<"WIDTH">> -> ?WIDTH;
+    <<"XY">> -> ?XY;
+    <<"ENDEL">> -> ?ENDEL;
+    <<"SNAME">> -> ?SNAME;
+    <<"COLROW">> -> ?COLROW;
+    <<"TEXTNODE">> -> ?TEXTNODE;
+    <<"NODE">> -> ?NODE;
+    <<"TEXTTYPE">> -> ?TEXTTYPE;
+    <<"PRESENTATION">> -> ?PRESENTATION;
+    <<"STRING">> -> ?STRING;
+    <<"STRANS">> -> ?STRANS;
+    <<"MAG">> -> ?MAG;
+    <<"ANGLE">> -> ?ANGLE;
+    <<"REFLIBS">> -> ?REFLIBS;
+    <<"FONTS">> -> ?FONTS;
+    <<"PATHTYPE">> -> ?PATHTYPE;
+    <<"GENERATIONS">> -> ?GENERATIONS;
+    <<"ATTRTABLE">> -> ?ATTRTABLE;
+    <<"STYPTABLE">> -> ?STYPTABLE;
+    <<"STRTYPE">> -> ?STRTYPE;
+    <<"ELFLAGS">> -> ?ELFLAGS;
+    <<"ELKEY">> -> ?ELKEY;
+    <<"NODETYPE">> -> ?NODETYPE;
+    <<"PROPATTR">> -> ?PROPATTR;
+    <<"PROPVALUE">> -> ?PROPVALUE;
+    <<"BOX">> -> ?BOX;
+    <<"BOXTYPE">> -> ?BOXTYPE;
+    <<"PLEX">> -> ?PLEX;
+    <<"BGNEXTN">> -> ?BGNEXTN;
+    <<"ENDEXTN">> -> ?ENDEXTN;
+    <<"TAPENUM">> -> ?TAPENUM;
+    <<"TAPECODE">> -> ?TAPECODE;
+    <<"STRCLASS">> -> ?STRCLASS;
+    <<"FORMAT">> -> ?FORMAT;
+    <<"MASK">> -> ?MASK;
+    <<"ENDMASKS">> -> ?ENDMASKS;
+    <<"LIBDIRSIZE">> -> ?LIBDIRSIZE;
+    <<"SRFNAME">> -> ?SRFNAME;
+    <<"LIBSECUR">> -> ?LIBSECUR;
+    <<"BORDER">> -> ?BORDER;
+    <<"SOFTFENCE">> -> ?SOFTFENCE;
+    <<"HARDFENCE">> -> ?HARDFENCE;
+    <<"SOFTWIRE">> -> ?SOFTWIRE;
+    <<"HARDWIRE">> -> ?HARDWIRE;
+    <<"PATHPORT">> -> ?PATHPORT;
+    <<"NODEPORT">> -> ?NODEPORT;
+    <<"USERCONSTRAINT">> -> ?USERCONSTRAINT;
+    <<"SPACERERROR">> -> ?SPACERERROR;
+    <<"CONTACT">> -> ?CONTACT
   end.
